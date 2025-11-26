@@ -1,17 +1,438 @@
-import OBR from "@owlbear-rodeo/sdk";
+// sheet.js - versão única que abre a ficha como um popover (HTML+CSS+JS embutidos)
+import OBR from "https://cdn.owlbear.rodeo/sdk/latest/obrsdk.esm.js";
 
-OBR.onReady(() => {
+const TOOL_ID = "ficha-meu-sistema-adv.tool";
+const POPOVER_ID = "ficha-meu-sistema-adv.popover";
+
+function makeDataUrl() {
+  const html = `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ficha — Meu Sistema (Avançada)</title>
+<style>
+:root{
+  --bg:#f8fbff; --card:#ffffff; --text:#1b1f3b; --muted:#7b86a8;
+  --accent1:linear-gradient(90deg,#ffb6d5,#ffc8a8);
+  --accent2:linear-gradient(90deg,#a78bfa,#f0abfc);
+  --accent3:linear-gradient(90deg,#ffd36b,#ffb86b);
+  --glass: rgba(255,255,255,0.6);
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto; background:var(--bg); color:var(--text)}
+#app{max-width:980px;margin:10px auto;padding:14px}
+header{display:flex;justify-content:space-between;align-items:center}
+h1{margin:0;font-size:20px;letter-spacing:0.4px}
+.controls{display:flex;gap:8px;align-items:center}
+button{background:var(--accent2);border:none;color:white;padding:6px 10px;border-radius:10px;cursor:pointer;box-shadow:0 6px 14px rgba(160,120,220,0.12)}
+.card{background:var(--card);border-radius:12px;padding:12px;margin-bottom:12px;box-shadow:0 6px 18px rgba(30,40,90,0.04);border:1px solid rgba(27,31,59,0.04)}
+main{display:flex;gap:12px;align-items:flex-start}
+.left{flex:1}
+.right{width:420px}
+.identity input{width:100%;padding:8px;border-radius:8px;border:1px solid rgba(27,31,59,0.06);margin-bottom:8px}
+.meta-row{display:flex;gap:8px}
+.meta-row input{flex:1}
+.attr-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.attr{background:var(--glass);padding:8px;border-radius:8px;display:flex;flex-direction:column}
+.attr label{font-size:12px;color:var(--muted);margin-bottom:6px}
+.attr input{padding:6px;border-radius:6px;border:1px solid rgba(27,31,59,0.06)}
+.attr-bonus{font-size:13px;margin-top:6px;color:var(--muted)}
+.resources .resource-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.bar-wrap{display:flex;align-items:center;gap:6px;flex:1}
+.bar{height:12px;background:rgba(27,31,59,0.06);border-radius:8px;overflow:hidden;flex:1}
+.bar-fill{height:100%;width:0%;transition:width 0.18s ease}
+.nums input{width:60px;padding:4px;border-radius:6px;border:1px solid rgba(27,31,59,0.06);text-align:center}
+.btn-small{background:transparent;border-radius:8px;border:1px solid rgba(27,31,59,0.04);padding:6px;cursor:pointer}
+.combat .calc-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.combat input[readonly]{background:transparent;border:none;color:var(--text);font-weight:600}
+.inventory .item{display:flex;justify-content:space-between;align-items:center;padding:6px;border-radius:8px;border:1px dashed rgba(27,31,59,0.04);margin-bottom:6px}
+.item-controls{display:flex;gap:8px;margin-top:8px}
+.item-controls input{padding:6px;border-radius:8px;border:1px solid rgba(27,31,59,0.06)}
+.weight-total{margin-top:6px;color:var(--muted)}
+.tech-list .tech{border-radius:8px;padding:8px;border:1px solid rgba(27,31,59,0.04);margin-bottom:8px;background:linear-gradient(180deg,rgba(255,255,255,0.6),rgba(250,250,255,0.8))}
+.tech-controls{display:flex;gap:6px;margin-top:6px}
+.footer{margin-top:12px;text-align:right;color:var(--muted);font-size:12px}
+@media(max-width:980px){main{flex-direction:column}.right{width:100%}}
+</style>
+</head>
+<body>
+  <div id="app" class="anime-theme">
+    <header>
+      <h1>Ficha — Meu Sistema</h1>
+      <div class="controls">
+        <button id="saveBtn">Salvar</button>
+        <button id="loadBtn">Carregar</button>
+        <label class="token-save"><input id="useTokenSave" type="checkbox"> Salvar por token</label>
+      </div>
+    </header>
+
+    <main>
+      <section class="left">
+        <div class="identity card">
+          <input id="nome" placeholder="Nome do Personagem">
+          <div class="meta-row">
+            <input id="raca" placeholder="Raça">
+            <input id="classe_social" placeholder="Classe Social">
+            <input id="idade" type="number" placeholder="Idade">
+          </div>
+        </div>
+
+        <div class="attributes card">
+          <h2>Atributos</h2>
+          <div class="attr-grid" id="attrGrid"></div>
+        </div>
+
+        <div class="resources card">
+          <h2>Recursos</h2>
+          <div class="resource-row">
+            <label>Vida</label>
+            <div class="bar-wrap">
+              <button class="btn-small dec" data-target="vida_atual">–</button>
+              <div class="bar" id="vida_bar"><div class="bar-fill" id="vida_fill"></div></div>
+              <button class="btn-small inc" data-target="vida_atual">+</button>
+            </div>
+            <div class="nums"><input id="vida_atual" type="number"> / <input id="vida_max" type="number"></div>
+          </div>
+
+          <div class="resource-row">
+            <label>Mana</label>
+            <div class="bar-wrap">
+              <button class="btn-small dec" data-target="mana_atual">–</button>
+              <div class="bar" id="mana_bar"><div class="bar-fill" id="mana_fill"></div></div>
+              <button class="btn-small inc" data-target="mana_atual">+</button>
+            </div>
+            <div class="nums"><input id="mana_atual" type="number"> / <input id="mana_max" type="number"></div>
+          </div>
+
+          <div class="resource-row">
+            <label>Stamina</label>
+            <div class="bar-wrap">
+              <button class="btn-small dec" data-target="stamina_atual">–</button>
+              <div class="bar" id="stamina_bar"><div class="bar-fill" id="stamina_fill"></div></div>
+              <button class="btn-small inc" data-target="stamina_atual">+</button>
+            </div>
+            <div class="nums"><input id="stamina_atual" type="number"> / <input id="stamina_max" type="number"></div>
+          </div>
+        </div>
+
+      </section>
+
+      <section class="right">
+        <div class="combat card">
+          <h2>Combate & Cálculos</h2>
+          <div class="calc-row">
+            <label>Esquiva</label>
+            <input id="esquiva_calc" readonly>
+          </div>
+          <div class="calc-row">
+            <label>Defesa</label>
+            <input id="defesa_calc" readonly>
+          </div>
+          <div class="calc-row">
+            <label>Dano Base</label>
+            <input id="dano_calc" readonly>
+          </div>
+
+          <div class="rolls">
+            <div id="rollResult" class="roll-result"></div>
+          </div>
+        </div>
+
+        <div class="inventory card">
+          <h2>Inventário</h2>
+          <div id="itemsList"></div>
+          <div class="item-controls">
+            <input id="newItemName" placeholder="Nome do item">
+            <input id="newItemWeight" type="number" placeholder="Peso">
+            <input id="newItemDmg" placeholder="Dano (ex: 1d6+2)">
+            <label><input id="newItemEquip" type="checkbox"> Equipar</label>
+            <button id="addItem">Adicionar Item</button>
+          </div>
+          <div class="weight-total">Peso total: <span id="weightTotal">0</span></div>
+        </div>
+
+        <div class="techniques card">
+          <h2>Técnicas & Talentos</h2>
+          <div id="techList" class="tech-list"></div>
+          <div class="tech-controls">
+            <input id="newTechName" placeholder="Nome">
+            <input id="newTechCost" placeholder="Custo">
+            <input id="newTechType" placeholder="Tipo">
+            <button id="addTech">Adicionar Técnica</button>
+          </div>
+        </div>
+
+      </section>
+    </main>
+
+    <footer class="footer">
+      <small>Tema: Anime estilizado • Técnicas ativadas • Rolagens desativadas</small>
+    </footer>
+  </div>
+
+<script type="module">
+// IMPORT SDK inside popover iframe
+import OBR from "https://cdn.owlbear.rodeo/sdk/latest/obrsdk.esm.js";
+
+// --- Schema mínimo baseado na planilha (você pode editar) ---
+const SCHEMA = [
+  {key:'forca', label:'Força', type:'number', value:10},
+  {key:'agilidade', label:'Agilidade', type:'number', value:10},
+  {key:'raciocinio', label:'Raciocínio', type:'number', value:10},
+  {key:'vontade', label:'Vontade', type:'number', value:10},
+  {key:'percepcao', label:'Percepção', type:'number', value:10},
+  // recursos
+  {key:'vida_max', label:'Vida Máx', type:'number', value:20},
+  {key:'vida_atual', label:'Vida Atual', type:'number', value:20},
+  {key:'mana_max', label:'Mana Máx', type:'number', value:10},
+  {key:'mana_atual', label:'Mana Atual', type:'number', value:10},
+  {key:'stamina_max', label:'Stamina Máx', type:'number', value:10},
+  {key:'stamina_atual', label:'Stamina Atual', type:'number', value:10}
+];
+
+// Utilitários
+function bonusFromAttr(val){
+  return Math.floor((Number(val) - 10) / 2);
+}
+function clamp(n, a, b){ return Math.max(a, Math.min(b, n)); }
+
+// Render atributos
+function renderAttributes(){
+  const grid = document.getElementById('attrGrid');
+  grid.innerHTML = '';
+  SCHEMA.filter(s=>['forca','agilidade','raciocinio','vontade','percepcao'].includes(s.key)).forEach(s=>{
+    const div = document.createElement('div'); div.className='attr';
+    const label = document.createElement('label'); label.textContent = s.label; div.appendChild(label);
+    const input = document.createElement('input'); input.type='number'; input.id=s.key; input.value=s.value;
+    input.addEventListener('change', ()=>{ recalcAll(); saveDraft(); });
+    div.appendChild(input);
+    const bonus = document.createElement('div'); bonus.className='attr-bonus'; bonus.id=s.key+'_bonus'; bonus.textContent='+'+bonusFromAttr(input.value);
+    div.appendChild(bonus);
+    grid.appendChild(div);
+  });
+}
+
+// Recursos: atualiza barras
+function updateBars(){
+  const vidaMax = Number(document.getElementById('vida_max').value || 0);
+  const vidaAt = Number(document.getElementById('vida_atual').value || 0);
+  const manaMax = Number(document.getElementById('mana_max').value || 0);
+  const manaAt = Number(document.getElementById('mana_atual').value || 0);
+  const stamMax = Number(document.getElementById('stamina_max').value || 0);
+  const stamAt = Number(document.getElementById('stamina_atual').value || 0);
+
+  const vPerc = vidaMax>0 ? clamp(vidaAt/vidaMax,0,1) : 0;
+  const mPerc = manaMax>0 ? clamp(manaAt/manaMax,0,1) : 0;
+  const sPerc = stamMax>0 ? clamp(stamAt/stamMax,0,1) : 0;
+
+  document.getElementById('vida_fill').style.width = (vPerc*100)+'%';
+  document.getElementById('mana_fill').style.width = (mPerc*100)+'%';
+  document.getElementById('stamina_fill').style.width = (sPerc*100)+'%';
+  document.getElementById('vida_fill').style.background = vidaMax>0 && vidaAt/vidaMax < 0.35 ? 'linear-gradient(90deg,#ff6b6b,#ff9e6b)' : 'linear-gradient(90deg,#7afcff,#4da6ff)';
+  document.getElementById('mana_fill').style.background = 'linear-gradient(90deg,#a78bfa,#f0abfc)';
+  document.getElementById('stamina_fill').style.background = 'linear-gradient(90deg,#ffd36b,#ffb86b)';
+}
+
+// Recalcula valores derivativos
+function recalcAll(){
+  ['forca','agilidade','raciocinio','vontade','percepcao'].forEach(k=>{
+    const v = Number(document.getElementById(k).value || 0);
+    document.getElementById(k+'_bonus').textContent = (bonusFromAttr(v)>=0?'+':'')+bonusFromAttr(v);
+  });
+
+  const agi = Number(document.getElementById('agilidade').value || 0);
+  const per = Number(document.getElementById('percepcao').value || 0);
+  document.getElementById('esquiva_calc').value = (agi + per);
+
+  const forca = Number(document.getElementById('forca').value || 0);
+  document.getElementById('defesa_calc').value = (Math.floor(forca/2) + 10);
+
+  document.getElementById('dano_calc').value = 'Bonus Força: '+bonusFromAttr(forca)+' + arma equipada (se houver)';
+  updateBars();
+}
+
+// Inventory logic
+let ITEMS = [];
+let TECHS = [];
+function renderItems(){
+  const container = document.getElementById('itemsList'); container.innerHTML='';
+  ITEMS.forEach((it,idx)=>{
+    const el = document.createElement('div'); el.className='item';
+    el.innerHTML = `<div class=it-left><strong>${it.name}</strong><div class=muted>${it.dmg || ''}</div></div>
+      <div class=it-right><input class=wt type=number value='${it.weight||0}' data-idx='${idx}'><label><input class=eq type=checkbox data-idx='${idx}' ${it.equipped?'checked':''}> Eq</label><button class=del data-idx='${idx}'>Rem</button></div>`;
+    container.appendChild(el);
+  });
+  recalcWeight();
+  attachItemEvents();
+}
+
+function attachItemEvents(){
+  document.querySelectorAll('.del').forEach(b=>b.addEventListener('click', e=>{ const i = e.target.dataset.idx; ITEMS.splice(i,1); renderItems(); saveDraft(); }));
+  document.querySelectorAll('.wt').forEach(inp=>inp.addEventListener('change', e=>{ const i=e.target.dataset.idx; ITEMS[i].weight = Number(e.target.value||0); recalcWeight(); saveDraft(); }));
+  document.querySelectorAll('.eq').forEach(ch=>ch.addEventListener('change', e=>{ const i=e.target.dataset.idx; ITEMS.forEach((it,ii)=>it.equipped = ii==i); renderItems(); recalcAll(); saveDraft(); }));
+}
+
+function recalcWeight(){
+  const total = ITEMS.reduce((s,i)=>s + (Number(i.weight)||0), 0);
+  document.getElementById('weightTotal').textContent = total;
+}
+
+function renderTechs(){
+  const c = document.getElementById('techList'); c.innerHTML='';
+  TECHS.forEach((t,idx)=>{
+    const e = document.createElement('div'); e.className='tech';
+    e.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><strong>${t.name}</strong><div><button data-idx='${idx}' class='delTech'>Rem</button></div></div>
+      <div><small>Tipo: ${t.type} • Custo: ${t.cost}</small></div><div style="margin-top:6px">${t.desc||''}</div>`;
+    c.appendChild(e);
+  });
+  attachTechEvents();
+}
+
+function attachTechEvents(){
+  document.querySelectorAll('.delTech').forEach(b=>b.addEventListener('click', e=>{ const i=e.target.dataset.idx; TECHS.splice(i,1); renderTechs(); saveDraft(); }));
+}
+
+// Persistence (scene/token/local)
+async function saveData(scope='scene'){
+  const payload = gatherAll();
+  try{
+    if(OBR && scope === 'scene'){
+      await OBR.scene.local.set('ficha_meu_sistema_adv', payload);
+      alert('Ficha salva na cena.');
+    } else if(OBR && scope === 'token'){
+      const sel = await OBR.selection.get();
+      if(sel && sel.length>0){
+        const tokenId = sel[0].id;
+        await OBR.scene.tokens.set(tokenId, {tags: {ficha_meu_sistema_adv: JSON.stringify(payload)}});
+        alert('Ficha salva no token selecionado.');
+      } else alert('Selecione um token para salvar.');
+    } else {
+      localStorage.setItem('ficha_meu_sistema_adv', JSON.stringify(payload));
+      alert('Ficha salva no localStorage (fallback).');
+    }
+  } catch(e){ console.error(e); alert('Erro ao salvar: '+(e && e.message ? e.message : e)); }
+}
+
+async function loadData(){
+  try{
+    if(OBR){
+      const data = await OBR.scene.local.get('ficha_meu_sistema_adv');
+      if(data){ applyData(data); return; }
+      const sel = await OBR.selection.get();
+      if(sel && sel.length>0){
+        const tokenId = sel[0].id;
+        const tok = await OBR.scene.tokens.get(tokenId);
+        if(tok && tok.tags && tok.tags.ficha_meu_sistema_adv){
+          const d = JSON.parse(tok.tags.ficha_meu_sistema_adv);
+          applyData(d); return;
+        }
+      }
+      alert('Nenhuma ficha encontrada na cena ou token selecionado.');
+    } else {
+      const raw = localStorage.getItem('ficha_meu_sistema_adv');
+      if(raw){ applyData(JSON.parse(raw)); return; }
+      applyData({});
+    }
+  } catch(e){ console.error(e); alert('Erro ao carregar: '+(e && e.message ? e.message : e)); }
+}
+
+function gatherAll(){
+  const data = {};
+  SCHEMA.forEach(s=>{ data[s.key] = document.getElementById(s.key) ? document.getElementById(s.key).value : s.value; });
+  data.nome = document.getElementById('nome').value;
+  data.raca = document.getElementById('raca').value;
+  data.classe_social = document.getElementById('classe_social').value;
+  data.idade = document.getElementById('idade').value;
+  data.items = ITEMS;
+  data.techs = TECHS;
+  return data;
+}
+
+function applyData(d){
+  try{
+    SCHEMA.forEach(s=>{ if(d[s.key]!==undefined){ document.getElementById(s.key).value = d[s.key]; } });
+    document.getElementById('nome').value = d.nome || '';
+    document.getElementById('raca').value = d.raca || '';
+    document.getElementById('classe_social').value = d.classe_social || '';
+    document.getElementById('idade').value = d.idade || '';
+    ITEMS = d.items || [];
+    TECHS = d.techs || [];
+    renderItems(); renderTechs(); recalcAll();
+  }catch(e){ console.error(e); }
+}
+
+// Draft autosave (localStorage)
+function saveDraft(){ localStorage.setItem('ficha_draft_adv', JSON.stringify(gatherAll())); }
+
+// UI Events
+window.addEventListener('DOMContentLoaded', ()=>{
+  // render base
+  renderAttributes();
+  renderItems();
+  renderTechs();
+  recalcAll();
+
+  // add resource buttons
+  document.querySelectorAll('.inc').forEach(b=>b.addEventListener('click', e=>{ const t=e.target.dataset.target; const el=document.getElementById(t); el.value = Number(el.value||0)+1; recalcAll(); saveDraft(); }));
+  document.querySelectorAll('.dec').forEach(b=>b.addEventListener('click', e=>{ const t=e.target.dataset.target; const el=document.getElementById(t); el.value = Math.max(0, Number(el.value||0)-1); recalcAll(); saveDraft(); }));
+
+  // items
+  document.getElementById('addItem').addEventListener('click', ()=>{
+    const n=document.getElementById('newItemName').value.trim();
+    if(!n) return alert('Nome do item obrigatório');
+    ITEMS.push({name:n, weight:Number(document.getElementById('newItemWeight').value||0), dmg:document.getElementById('newItemDmg').value||'', equipped:document.getElementById('newItemEquip').checked});
+    document.getElementById('newItemName').value=''; document.getElementById('newItemWeight').value=''; document.getElementById('newItemDmg').value=''; document.getElementById('newItemEquip').checked=false;
+    renderItems(); saveDraft();
+  });
+
+  // techs
+  document.getElementById('addTech').addEventListener('click', ()=>{
+    const n=document.getElementById('newTechName').value.trim();
+    if(!n) return alert('Nome da técnica obrigatório');
+    TECHS.push({name:n, cost:document.getElementById('newTechCost').value||'', type:document.getElementById('newTechType').value||'', desc:''});
+    document.getElementById('newTechName').value=''; document.getElementById('newTechCost').value=''; document.getElementById('newTechType').value='';
+    renderTechs(); saveDraft();
+  });
+
+  document.getElementById('saveBtn').addEventListener('click', ()=>{
+    const useToken = document.getElementById('useTokenSave').checked;
+    saveData(useToken ? 'token' : 'scene');
+  });
+  document.getElementById('loadBtn').addEventListener('click', loadData);
+
+  // try load draft
+  const draft = localStorage.getItem('ficha_draft_adv');
+  if(draft) applyData(JSON.parse(draft));
+});
+</script>
+</body>
+</html>`;
+
+  return "data:text/html;charset=utf-8," + encodeURIComponent(html);
+}
+
+async function createTool() {
+  // remove existing tool (if any) to allow reloading during development
+  try { await OBR.tool.remove(TOOL_ID); } catch(e) { /* ignore */ }
+
   OBR.tool.create({
-    id: "ficha-meu-sistema-adv.tool",
+    id: TOOL_ID,
     icons: [{ icon: "/icon.svg", label: "Ficha" }],
     title: "Ficha Avançada",
-    onClick() {
-      OBR.popover.open({
-        id: "ficha-meu-sistema-adv.popover",
-        url: "/index.html",
+    async onClick(_, elementId) {
+      const url = makeDataUrl();
+      await OBR.popover.open({
+        id: POPOVER_ID,
+        url,
         width: 880,
-        height: 760
+        height: 760,
+        anchorElementId: elementId
       });
     }
   });
+}
+
+OBR.onReady(() => {
+  createTool();
 });
