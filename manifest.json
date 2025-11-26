@@ -1,0 +1,8 @@
+{
+  "id": "ficha-meu-sistema-adv",
+  "name": "Ficha — Meu Sistema (Avançada)",
+  "version": "1.1.0",
+  "author": "Você",
+  "description": "Ficha avançada com barras, cálculos e técnicas — tema anime",
+  "entrypoint": "sheet.js"
+}
